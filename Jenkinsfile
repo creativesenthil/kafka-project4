@@ -1,10 +1,6 @@
 pipeline {
     agent any
 
-    tools {
-        git 'Default'   // optional (works even if not configured)
-    }
-
     environment {
         TF_IN_AUTOMATION = "true"
     }
@@ -23,8 +19,29 @@ pipeline {
                 sh '''
                 echo "Current path:"
                 pwd
-                echo "Listing files:"
+                echo "Files:"
                 ls -l
+                '''
+            }
+        }
+
+        stage('Check Docker & Kafka') {
+            steps {
+                sh '''
+                echo "Checking Docker containers..."
+                docker ps
+
+                echo "Checking Kafka broker..."
+                docker ps | grep broker || (echo "Kafka broker not running" && exit 1)
+                '''
+            }
+        }
+
+        stage('Wait for Kafka Ready') {
+            steps {
+                sh '''
+                echo "Waiting for Kafka to stabilize..."
+                sleep 20
                 '''
             }
         }
@@ -32,7 +49,6 @@ pipeline {
         stage('Terraform Init') {
             steps {
                 sh '''
-                echo "Initializing Terraform..."
                 cd terraform/local
                 terraform init
                 '''
@@ -42,7 +58,6 @@ pipeline {
         stage('Terraform Plan') {
             steps {
                 sh '''
-                echo "Running Terraform Plan..."
                 cd terraform/local
                 terraform plan
                 '''
@@ -52,7 +67,6 @@ pipeline {
         stage('Terraform Apply') {
             steps {
                 sh '''
-                echo "Applying Terraform..."
                 cd terraform/local
                 terraform apply -auto-approve
                 '''
@@ -62,10 +76,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Pipeline executed successfully!"
+            echo "✅ Pipeline SUCCESS"
         }
         failure {
-            echo "❌ Pipeline failed. Check logs."
+            echo "❌ Pipeline FAILED"
         }
     }
 }
